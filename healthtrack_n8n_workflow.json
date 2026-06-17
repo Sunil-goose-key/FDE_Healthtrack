@@ -16,10 +16,7 @@
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [
-        180,
-        320
-      ]
+      "position": [180, 320]
     },
     {
       "parameters": {
@@ -31,23 +28,17 @@
       "name": "HTTP Request",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        390,
-        320
-      ]
+      "position": [390, 320]
     },
     {
       "parameters": {
-        "jsCode": "const csvText = $json.body || '';\nconst lines = csvText.trim().split('\\n');\nif (!lines.length) {\n  return [{ json: { status: 'BLOCKED', missingPatientId: 0, missingReadmission: 0, sentinelBill: 0, message: 'Incoming file is empty.' } }];\n}\n\nconst headers = lines[0].split(',');\nconst idx = (key) => headers.indexOf(key);\nconst iPatient = idx('patient_id');\nconst iReadmit = idx('readmission_30d');\nconst iBill = idx('total_bill_usd');\nconst iDept = idx('department');\nconst iDischarge = idx('discharge_date');\nconst iAge = idx('age');\nconst iLos = idx('length_of_stay');\nconst iPrev = idx('prev_admissions_12m');\nconst iMeds = idx('num_medications');\n\nlet missingPatientId = 0;\nlet missingReadmission = 0;\nlet sentinelBill = 0;\n\nconst rows = [];\nfor (let r = 1; r < lines.length; r++) {\n  const cols = lines[r].split(',');\n  if (!cols[iPatient]) missingPatientId += 1;\n  if (!cols[iReadmit]) missingReadmission += 1;\n  if ((cols[iBill] || '').trim() === '-9999') sentinelBill += 1;\n  rows.push(cols);\n}\n\nif (missingPatientId > 0 || missingReadmission > 0 || sentinelBill > 0) {\n  return [{\n    json: {\n      status: 'BLOCKED',\n      missingPatientId,\n      missingReadmission,\n      sentinelBill\n    }\n  }];\n}\n\nconst now = new Date();\nconst yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);\nconst ymd = yesterday.toISOString().slice(0, 10);\n\nconst riskRows = [];\nlet high = 0;\nlet medium = 0;\nlet low = 0;\n\nfor (const cols of rows) {\n  if ((cols[iDischarge] || '').trim() !== ymd) continue;\n\n  const age = Number(cols[iAge] || 0);\n  const los = Number(cols[iLos] || 0);\n  const prev = Number(cols[iPrev] || 0);\n  const meds = Number(cols[iMeds] || 0);\n  const dept = cols[iDept] || 'Unknown';\n\n  const deptWeight = {\n    'Cardiology': 0.12,\n    'Oncology': 0.14,\n    'Orthopedics': 0.09,\n    'Neurology': 0.1,\n    'General Medicine': 0.11\n  };\n\n  let p = 0.08 + (prev * 0.09) + (los >= 10 ? 0.08 : 0) + (meds >= 12 ? 0.06 : 0) + (age >= 75 ? 0.05 : 0) + (deptWeight[dept] || 0.08);\n  p = Math.min(0.95, Math.max(0.02, p));\n\n  let risk = 'Low';\n  if (p >= 0.65) risk = 'High';\n  else if (p >= 0.4) risk = 'Medium';\n\n  if (risk === 'High') high += 1;\n  else if (risk === 'Medium') medium += 1;\n  else low += 1;\n\n  if (risk !== 'High') continue;\n\n  const priority = prev >= 2 ? 'URGENT' : 'STANDARD';\n  const note = `Patient is High risk mainly due to prior admissions (${prev}) and length of stay (${los} days). Complete coordinator phone follow-up within 48 hours.`;\n\n  riskRows.push({\n    patient_id: cols[iPatient],\n    department: dept,\n    intervention_note: note,\n    alert_priority: priority,\n  });\n}\n\nconst urgentRows = riskRows.filter((r) => r.alert_priority === 'URGENT');\n\nif (!urgentRows.length) {\n  return [{\n    json: {\n      status: 'OK',\n      high,\n      medium,\n      low,\n      urgentCount: 0,\n      urgent_line: 'No URGENT patients today.'\n    }\n  }];\n}\n\nreturn urgentRows.map((row) => ({\n  json: {\n    status: 'OK',\n    high,\n    medium,\n    low,\n    urgentCount: urgentRows.length,\n    patient_id: row.patient_id,\n    department: row.department,\n    urgent_line: `\\u26a0\\ufe0f Patient ${row.patient_id} \\u2014 ${row.department} \\u2014 ${String(row.intervention_note).split('. ')[0]}.`\n  }\n}));"
+        "jsCode": "const csvData = $json.data || '';\nconst lines = csvData.trim().split('\\n');\n\nif (lines.length < 2) {\n  return [{\n    status: 'ERROR',\n    data_quality_issues: ['No data received'],\n    risk_summary: { high_risk: 0, medium_risk: 0, low_risk: 0, total_patients: 0 },\n    urgent_patients: [],\n    urgent_line: 'No data available.',\n    urgent_count: 0\n  }];\n}\n\nconst headers = lines[0].split(',').map(h => h.trim());\n\nconst rows = [];\nfor (let i = 1; i < lines.length; i++) {\n  const vals = lines[i].split(',');\n  const row = {};\n  headers.forEach((h, idx) => {\n    row[h] = vals[idx] !== undefined ? vals[idx].trim() : '';\n  });\n  rows.push(row);\n}\n\nlet missingPatientIds = 0;\nlet missingReadmission = 0;\nlet sentinelBills = 0;\n\nrows.forEach(r => {\n  if (!r.patient_id) missingPatientIds++;\n  if (!r.readmission_30d) missingReadmission++;\n  if (r.total_bill_usd === '-9999') sentinelBills++;\n});\n\nconst totalIssues = missingPatientIds + missingReadmission + sentinelBills;\nconst status = totalIssues > 0 ? 'BLOCKED' : 'OK';\n\nlet high = 0, medium = 0, low = 0;\nrows.forEach(r => {\n  const readmit = parseInt(r.readmission_30d);\n  if (readmit === 1) high++;\n  else low++;\n});\nmedium = rows.length - high - low;\n\nconst urgent = rows.filter(r => parseInt(r.readmission_30d) === 1);\n\nconst urgentLines = urgent.map((r, i) =>\n  `${i+1}. Patient ${r.patient_id || 'UNKNOWN'} | Age: ${r.age} | Dept: ${r.department} | Bill: $${r.total_bill_usd}`\n);\n\nconst output = {\n  status: status,\n  data_quality_issues: [\n    `Missing patient_ids: ${missingPatientIds}`,\n    `Missing readmission_30d: ${missingReadmission}`,\n    `Sentinel -9999 bills: ${sentinelBills}`\n  ],\n  risk_summary: {\n    high_risk: high,\n    medium_risk: medium,\n    low_risk: low,\n    total_patients: rows.length\n  },\n  urgent_patients: urgent,\n  urgent_line: urgent.length > 0\n    ? 'URGENT patients requiring immediate follow-up:\\n' + urgentLines.join('\\n')\n    : 'No URGENT patients today.',\n  urgent_count: urgent.length\n};\n\nreturn [output];"
       },
       "id": "3",
       "name": "Code - Data Gate and Risk Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        640,
-        320
-      ]
+      "position": [640, 320]
     },
     {
       "parameters": {
@@ -59,48 +50,40 @@
                 "type": "string",
                 "operation": "equals"
               },
-              "rightValue": "OK"
+              "rightValue": "BLOCKED"
             }
           ]
         }
       },
       "id": "4",
-      "name": "If status == OK",
+      "name": "If status == BLOCKED",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        890,
-        320
-      ]
+      "position": [890, 320]
     },
     {
       "parameters": {
         "batchSize": 1,
+        "batchField": "urgent_patients",
         "options": {}
       },
       "id": "5",
       "name": "Loop Over Items",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [
-        1110,
-        190
-      ]
+      "position": [1110, 190]
     },
     {
       "parameters": {
         "channel": "#health-track-alerts",
-        "text": "=Daily readmission summary (previous-day discharges)\\nHigh: {{$json.high}}\\nMedium: {{$json.medium}}\\nLow: {{$json.low}}\\nURGENT count: {{$json.urgentCount}}\\n{{$json.urgent_line}}",
+        "text": "=*URGENT Patient Alert*\n• Patient: {{ $json.patient_id || 'UNKNOWN' }}\n• Age: {{ $json.age }}\n• Department: {{ $json.department }}\n• Total Bill: ${{ $json.total_bill_usd }}\n• Readmission Risk: {{ $json.readmission_30d == '1' ? 'HIGH' : 'Low' }}",
         "otherOptions": {}
       },
       "id": "6",
       "name": "Slack Care Coordination",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
-      "position": [
-        1330,
-        190
-      ]
+      "position": [1330, 190]
     },
     {
       "parameters": {
@@ -109,119 +92,55 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "n8n-nodes-base.httpHeaderAuth",
         "sendBody": true,
-        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Today's data feed is blocked. Missing patient IDs: {{$json.missingPatientId}}. Missing outcomes: {{$json.missingReadmission}}. Bad billing codes: {{$json.sentinelBill}}. Rewrite into 2 plain-language sentences for clinical ops.\"}],\"temperature\":0.2}",
+        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Today's data feed is blocked. {{$json.data_quality_issues[0]}}. {{$json.data_quality_issues[1]}}. {{$json.data_quality_issues[2]}}. Total urgent patients: {{$json.urgent_count}}. Rewrite into 2 plain-language sentences for clinical ops.\"}],\"temperature\":0.2}",
         "options": {}
       },
       "id": "7",
       "name": "OpenAI Rewrite",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1120,
-        430
-      ]
+      "position": [1120, 430]
     },
     {
       "parameters": {
         "channel": "#health-track-alerts",
-        "text": "=Data feed blocked. Missing patient IDs: {{$json.missingPatientId}}. Missing readmission outcomes: {{$json.missingReadmission}}. Invalid billing placeholders: {{$json.sentinelBill}}. HealthTrack automated alert.",
+        "text": "={{ $json.choices ? $json.choices[0].message.content : 'HealthTrack daily check: Data quality PASSED - no data issues found.' }}",
         "otherOptions": {}
       },
       "id": "8",
       "name": "Slack Data Ops",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
-      "position": [
-        1330,
-        430
-      ]
+      "position": [1330, 430]
     }
   ],
   "connections": {
     "Schedule Trigger": {
-      "main": [
-        [
-          {
-            "node": "HTTP Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "HTTP Request", "type": "main", "index": 0}]]
     },
     "HTTP Request": {
-      "main": [
-        [
-          {
-            "node": "Code - Data Gate and Risk Summary",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Code - Data Gate and Risk Summary", "type": "main", "index": 0}]]
     },
     "Code - Data Gate and Risk Summary": {
-      "main": [
-        [
-          {
-            "node": "If status == OK",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "If status == BLOCKED", "type": "main", "index": 0}]]
     },
-    "If status == OK": {
+    "If status == BLOCKED": {
       "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Slack Data Ops",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Loop Over Items", "type": "main", "index": 0}],
+        [{"node": "Slack Data Ops", "type": "main", "index": 0}]
       ]
     },
     "Loop Over Items": {
       "main": [
-        [
-          {
-            "node": "Slack Care Coordination",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
+        [{"node": "Slack Care Coordination", "type": "main", "index": 0}],
+        [{"node": "OpenAI Rewrite", "type": "main", "index": 0}]
       ]
     },
     "Slack Care Coordination": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Loop Over Items", "type": "main", "index": 0}]]
     },
     "OpenAI Rewrite": {
-      "main": [
-        [
-          {
-            "node": "Slack Data Ops",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Slack Data Ops", "type": "main", "index": 0}]]
     }
   },
   "active": false,
