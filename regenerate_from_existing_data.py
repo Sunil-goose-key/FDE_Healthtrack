@@ -398,9 +398,7 @@ def write_n8n_workflow():
             {
                 "parameters": {
                     "url": "https://raw.githubusercontent.com/Sunil-goose-key/FDE_Healthtrack/master/healthtrack_raw.csv",
-                    "options": {
-                        "response": {"responseFormat": "text"}
-                    },
+                    "options": {},
                 },
                 "id": "2",
                 "name": "HTTP Request",
@@ -463,7 +461,7 @@ def write_n8n_workflow():
                     "authentication": "genericCredentialType",
                     "genericAuthType": "n8n-nodes-base.httpHeaderAuth",
                     "sendBody": true,
-                    "jsonBody": "{\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Rewrite this into 2 sentences for clinical operations, plain language and no technical jargon: Today's discharge feed is blocked. Missing patient identifiers: {{$json.missingPatientId}}. Missing 30-day readmission outcomes: {{$json.missingReadmission}}. Invalid billing placeholder values (-9999): {{$json.sentinelBill}}.\"}],\n  \"temperature\": 0.2\n}",
+                    "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Today's data feed is blocked. Missing patient IDs: {{$json.missingPatientId}}. Missing outcomes: {{$json.missingReadmission}}. Bad billing codes: {{$json.sentinelBill}}. Rewrite into 2 plain-language sentences for clinical ops.\"}],\"temperature\":0.2}",
                     "options": {},
                 },
                 "id": "7",
