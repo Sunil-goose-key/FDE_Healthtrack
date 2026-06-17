@@ -397,7 +397,7 @@ def write_n8n_workflow():
             },
             {
                 "parameters": {
-                    "url": "https://raw.githubusercontent.com/Sunil-goose-key/FDE_Healthtrack/main/healthtrack_raw.csv",
+                    "url": "https://raw.githubusercontent.com/Sunil-goose-key/FDE_Healthtrack/master/healthtrack_raw.csv",
                     "options": {
                         "response": {"responseFormat": "text"}
                     },
