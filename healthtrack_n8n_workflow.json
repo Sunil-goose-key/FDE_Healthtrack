@@ -104,7 +104,7 @@
     {
       "parameters": {
         "channel": "#health-track-alerts",
-        "text": "={{ $json.choices ? $json.choices[0].message.content : 'HealthTrack daily check: Data quality PASSED - no data issues found.' }}",
+        "text": "=*HealthTrack Data Ops Summary*\nStatus: {{ $json.status }}\nIssues Found: {{ $json.data_quality_issues.join(', ') }}\nRisk Summary: {{ $json.risk_summary.high_risk }} high, {{ $json.risk_summary.medium_risk }} medium, {{ $json.risk_summary.low_risk }} low\nTotal Patients: {{ $json.risk_summary.total_patients }}",
         "otherOptions": {}
       },
       "id": "8",
@@ -133,14 +133,11 @@
     "Loop Over Items": {
       "main": [
         [{"node": "Slack Care Coordination", "type": "main", "index": 0}],
-        [{"node": "OpenAI Rewrite", "type": "main", "index": 0}]
+        [{"node": "Slack Data Ops", "type": "main", "index": 0}]
       ]
     },
     "Slack Care Coordination": {
       "main": [[{"node": "Loop Over Items", "type": "main", "index": 0}]]
-    },
-    "OpenAI Rewrite": {
-      "main": [[{"node": "Slack Data Ops", "type": "main", "index": 0}]]
     }
   },
   "active": false,
