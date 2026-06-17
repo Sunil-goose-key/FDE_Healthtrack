@@ -23,8 +23,9 @@
     },
     {
       "parameters": {
+        "method": "GET",
         "url": "https://raw.githubusercontent.com/Sunil-goose-key/FDE_Healthtrack/master/healthtrack_raw.csv",
-        "options": {}    
+        "options": {}
       },
       "id": "2",
       "name": "HTTP Request",
