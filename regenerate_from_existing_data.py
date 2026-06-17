@@ -397,12 +397,15 @@ def write_n8n_workflow():
             },
             {
                 "parameters": {
-                    "jsCode": "const fs = require('fs');\nconst csvText = fs.readFileSync('C:\\\\Users\\\\gitam\\\\Documents\\\\Health Track\\\\healthtrack_raw.csv', 'utf-8');\nreturn [{ json: { body: csvText } }];"
+                    "url": "https://raw.githubusercontent.com/Sunil-goose-key/FDE_Healthtrack/main/healthtrack_raw.csv",
+                    "options": {
+                        "response": {"responseFormat": "text"}
+                    },
                 },
                 "id": "2",
-                "name": "Read Local CSV",
-                "type": "n8n-nodes-base.code",
-                "typeVersion": 2,
+                "name": "HTTP Request",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
                 "position": [390, 320],
             },
             {
@@ -483,8 +486,8 @@ def write_n8n_workflow():
             },
         ],
         "connections": {
-            "Schedule Trigger": {"main": [[{"node": "Read Local CSV", "type": "main", "index": 0}]]},
-            "Read Local CSV": {"main": [[{"node": "Code - Data Gate and Risk Summary", "type": "main", "index": 0}]]},
+            "Schedule Trigger": {"main": [[{"node": "HTTP Request", "type": "main", "index": 0}]]},
+            "HTTP Request": {"main": [[{"node": "Code - Data Gate and Risk Summary", "type": "main", "index": 0}]]},
             "Code - Data Gate and Risk Summary": {"main": [[{"node": "If status == OK", "type": "main", "index": 0}]]},
             "If status == OK": {
                 "main": [
