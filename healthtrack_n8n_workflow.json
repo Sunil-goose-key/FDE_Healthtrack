@@ -124,7 +124,7 @@
     {
       "parameters": {
         "channel": "#data-ops",
-        "text": "={{ $json.body.choices[0].message.content || 'Data feed blocked. Please investigate source quality issues before morning huddle.' }}",
+        "text": "=Data feed blocked. Missing patient IDs: {{$json.missingPatientId}}. Missing readmission outcomes: {{$json.missingReadmission}}. Invalid billing placeholders: {{$json.sentinelBill}}. HealthTrack automated alert.",
         "otherOptions": {}
       },
       "id": "8",
@@ -182,7 +182,7 @@
         ],
         [
           {
-            "node": "OpenAI Rewrite",
+            "node": "Slack Data Ops",
             "type": "main",
             "index": 0
           }
