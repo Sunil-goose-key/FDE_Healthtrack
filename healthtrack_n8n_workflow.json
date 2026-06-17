@@ -92,6 +92,7 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "n8n-nodes-base.httpHeaderAuth",
         "sendBody": true,
+        "bodyContentType": "json",
         "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Today's data feed is blocked. {{$json.data_quality_issues[0]}}. {{$json.data_quality_issues[1]}}. {{$json.data_quality_issues[2]}}. Total urgent patients: {{$json.urgent_count}}. Rewrite into 2 plain-language sentences for clinical ops.\"}],\"temperature\":0.2}",
         "options": {}
       },
